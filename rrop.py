@@ -2,10 +2,11 @@
 # https://github.com/sympy/sympy/search?p=2&q=Xor&utf8=%E2%9C%93
 
 from collections import deque
+
 import sympy as sp
 from sympy.core.expr import Expr
-from sympy.printing.pretty.stringpict import prettyForm
 from sympy.core.numbers import Zero
+from sympy.printing.pretty.stringpict import prettyForm
 
 DEBUG = False
 WARNINGS = True
@@ -32,12 +33,21 @@ zeros_mul = {
     'y*(x*y)**k',
     '(y*x)**(k - 1)*x',
     # TODO: get rid at least of these
+    '(x*y)**(k - 1)*(y*x)**(k - 1)',
+    '(y*x)**(k - 1)*(x*y)**(k - 1)',
+    '(x*y)**k*(y*x)**(k - 1)',
+    '(y*x)**(k - 1)*(x*y)**k',
+    # '(y*(x*y)**(k - 1))**2',
     'y*(x*y)**(2*k - 2)',
     'y*(x*y)**(k - 2)*y*(x*y)**(k - 1)'
 }
 
 zeros_pow = {
+    '(x*y)**(k + 1)',
+    '(y*x)**(k + 1)',
     '(x*y)**(2*k - 1)',
+    '(y*x)**(2*k - 1)',
+    '(x*y)**(2*k)',
 }
 
 
@@ -61,9 +71,37 @@ def matches_xy_x(v1, v2):
     )
 
 
+def matches_x_y_x_y(v1, v2, v3, v4):
+    return (
+        isinstance(v1, sp.Symbol) and
+        isinstance(v2, sp.Symbol) and
+        v1 == v3 and
+        v2 == v4
+    )
+
+
 def canonical_mul(expr):
-    # fix triples
+    # fix quadruples
     queue = deque(expr.args)
+    args = []
+    while len(queue) >= 4:
+        v1 = queue.popleft()
+        v2 = queue.popleft()
+        v3 = queue.popleft()
+        v4 = queue.popleft()
+
+        if matches_x_y_x_y(v1, v2, v3, v4):
+            queue.appendleft((v1 * v2) ** 2)
+        else:
+            queue.appendleft(v4)
+            queue.appendleft(v3)
+            queue.appendleft(v2)
+            args.append(v1)
+    while queue:
+        args.append(queue.popleft())
+
+    # fix triples
+    queue = deque(args)
     args = []
     while len(queue) >= 3:
         v1 = queue.popleft()
@@ -109,6 +147,15 @@ def canonical_mul(expr):
         for z in zeros_mul:
             if z in s:
                 return 0
+        for z in zeros_pow:
+            if z in s:
+                return 0
+        return expr
+
+    def postprocess(expr):
+        expr = sp.powsimp(expr)
+        expr = sp.expand_mul(expr)
+        expr = catch_zeros(expr)
         return expr
 
     for i, arg in enumerate(args):
@@ -116,9 +163,9 @@ def canonical_mul(expr):
         for r in relations.keys():
             if s == r:
                 # WARNING: this may miss zeros produced by x**2 if canonical_mul is not restarted
-                return catch_zeros(sp.Mul(*(args[:i] + [relations[r]] + args[i + 1:])))
+                return postprocess(sp.Mul(*(args[:i] + [relations[r]] + args[i + 1:])))
 
-    return catch_zeros(sp.Mul(*args))
+    return postprocess(sp.Mul(*args))
 
 
 def canonical_expr(expr):
@@ -274,6 +321,17 @@ def is_x_xy(mul):
     )
 
 
+def is_y_x_xy(mul):
+    return (
+        isinstance(mul, sp.Mul) and
+        len(mul.args) == 3 and
+        str(mul.args[0]) == 'y' and
+        str(mul.args[1]) == 'x' and
+        isinstance(mul.args[2], sp.Pow) and
+        str(mul.args[2].args[0]) == 'x*y'
+    )
+
+
 def is_xy_k_plus_i(pow, counter):
     # matches (xy)^(k+symbol)
     return (
@@ -313,8 +371,15 @@ class Sum(sp.Sum):
                 if roots:
                     return function.subs(limits[0], roots[0])
             # FIXME: missing is_x_xy(r)
+            if is_y_x_xy(l):
+                xy_pow = l.args[2].args[1]
+                roots = sp.solve(xy_pow, limits[0])
+                assert (len(roots) <= 1)
+                if roots:
+                    return function.subs(limits[0], roots[0])
             if is_xy_k_plus_i(l, limits[0]):
                 return function.subs(limits[0], 0)
+                # FIXME: missing is_xy_k_plus_i(r)
         elif isinstance(function, sp.Add):
             return sum(Sum(arg, limits) for arg in function.args)
         elif isinstance(function, sp.Mul):

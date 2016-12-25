@@ -1,5 +1,6 @@
 import sympy as sp
-from rrop import TP, Sum, mysimplify, k, c, d, x, y, xy, yx
+
+from rrop import TP, Sum, mysimplify, k, c, d, x, y, xy, yx, canonical_expr
 
 
 def main():
@@ -8,16 +9,8 @@ def main():
     i = sp.symbols('i')
     X = TP(x, 1) + TP(1, x)
 
-    from rrop import canonical_mul
-    v = xy**k * x
-    print(canonical_mul(v))
-
-    print(TP(xy**k, y) * TP(x, 1))
-
-    print(mysimplify(c * d * TP(1 + c * x, y) * X * Sum(
-        TP(xy ** i, y * xy ** (k - 1 - i)),
-        (i, 0, k - 1)
-    )))
+    v = x * x * y * x
+    print(canonical_expr(v))
 
     return
 
@@ -53,6 +46,16 @@ def test_zero_proparagion():
 def test_sign_removal():
     X = TP(x, 1) - TP(1, x)
     assert X == TP(x, 1) + TP(1, x)
+
+
+def test_simplification():
+    assert canonical_expr(y * x * y * x) == yx ** 2
+    assert canonical_expr(d * xy ** (k + 1)) == 0
+    assert canonical_expr(x * y * xy ** (k - 1)) == xy ** k
+    assert canonical_expr(y * xy ** (k - 1) * yx ** (k - 1)) == 0
+
+    i = sp.symbols('i')
+    assert Sum(TP(y * x * xy ** i, yx ** (k - i)), (i, 0, k - 1)) == TP(yx, xy ** k)
 
 
 def test_misc():
