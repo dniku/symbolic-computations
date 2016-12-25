@@ -1,11 +1,9 @@
 # http://docs.sympy.org/dev/guide.html#sympy-s-architecture
-# https://github.com/sympy/sympy/search?p=2&q=Xor&utf8=%E2%9C%93
 
 from collections import deque
 
 import sympy as sp
 from sympy.core.expr import Expr
-from sympy.core.numbers import Zero
 from sympy.printing.pretty.stringpict import prettyForm
 
 DEBUG = False
@@ -37,7 +35,6 @@ zeros_mul = {
     '(y*x)**(k - 1)*(x*y)**(k - 1)',
     '(x*y)**k*(y*x)**(k - 1)',
     '(y*x)**(k - 1)*(x*y)**k',
-    # '(y*(x*y)**(k - 1))**2',
     'y*(x*y)**(2*k - 2)',
     'y*(x*y)**(k - 2)*y*(x*y)**(k - 1)'
 }
@@ -49,6 +46,15 @@ zeros_pow = {
     '(y*x)**(2*k - 1)',
     '(x*y)**(2*k)',
 }
+
+
+def matches_x_y_x_y(v1, v2, v3, v4):
+    return (
+        isinstance(v1, sp.Symbol) and
+        isinstance(v2, sp.Symbol) and
+        v1 == v3 and
+        v2 == v4
+    )
 
 
 def matches_xy_x_y(v1, v2, v3):
@@ -68,15 +74,6 @@ def matches_xy_x(v1, v2):
         isinstance(v1.args[0], sp.Mul) and
         len(v1.args[0].args) == 2 and
         str(v1.args[0].args[0]) == str(v2)
-    )
-
-
-def matches_x_y_x_y(v1, v2, v3, v4):
-    return (
-        isinstance(v1, sp.Symbol) and
-        isinstance(v2, sp.Symbol) and
-        v1 == v3 and
-        v2 == v4
     )
 
 
@@ -171,6 +168,7 @@ def canonical_mul(expr):
 def canonical_expr(expr):
     if DEBUG:
         return expr
+    expr = sp.sympify(expr)
     expr = sp.powsimp(expr)
     if isinstance(expr, sp.Number):
         return expr % 2
@@ -194,20 +192,27 @@ def canonical_expr(expr):
         return expr
 
 
-def split_coefficients(expr):
+def split_commutative(expr):
     if not isinstance(expr, sp.Mul):
-        return 1, expr
-    variables = []
-    coefficients = []
+        return 1, [expr]
+
+    commutative = []
+    other = []
     for arg in expr.args:
-        if isinstance(arg, sp.Number) or isinstance(arg, int):
-            coefficients.append(arg % 2)
-        elif arg == c or arg == d:
-            # FIXME: doesn't handle things like c**2
-            coefficients.append(arg)
+        if isinstance(arg, int) or isinstance(arg, sp.Number) or arg.is_commutative:
+            if isinstance(arg, int) or isinstance(arg, sp.Number):
+                arg_fixed = arg % 2
+                if arg != arg_fixed:
+                    # The following warning throws too often:
+                    # debug_warning("fix_misc fixed number {} to {}".format(arg, arg_fixed))
+                    if arg_fixed == 0:
+                        return 0, [0]
+                arg = arg_fixed
+            commutative.append(arg)
         else:
-            variables.append(arg)
-    return sp.Mul(*coefficients), sp.Mul(*variables)
+            other.append(arg)
+
+    return sp.Mul(*commutative), other
 
 
 def tp_times_tp(tp1, tp2):
@@ -229,24 +234,27 @@ class TP(Expr):
     _op_priority = 100.0  # integers have 10.0
 
     def __new__(cls, l, r):
-        l = canonical_expr(sp.sympify(l))
-        r = canonical_expr(sp.sympify(r))
-        if l == Zero or r == Zero or l == 0 or r == 0:
-            return 0  # Zero prints as <class 'sympy.core.numbers.Zero'>
+        l = canonical_expr(l)
+        r = canonical_expr(r)
+        if l == 0 or r == 0:
+            return 0
 
         if isinstance(l, sp.Add):
-            return sum(TP(arg, r) for arg in l.args)
+            return sp.Add(*[TP(arg, r) for arg in l.args])
         if isinstance(r, sp.Add):
-            return sum(TP(l, arg) for arg in r.args)
+            return sp.Add(*[TP(l, arg) for arg in r.args])
 
         # to make PyCharm happy
         assert isinstance(l, Expr)
         assert isinstance(r, Expr)
 
-        lc, lv = split_coefficients(l)
-        rc, rv = split_coefficients(r)
+        lc, lnc = split_commutative(l)
+        rc, rnc = split_commutative(r)
 
-        obj = Expr.__new__(cls, lv, rv)
+        lnc = sp.Mul(*lnc)
+        rnc = sp.Mul(*rnc)
+
+        obj = Expr.__new__(cls, lnc, rnc)
         obj.is_commutative = False
         return (lc * rc) * obj
 
@@ -383,8 +391,8 @@ class Sum(sp.Sum):
         elif isinstance(function, sp.Add):
             return sum(Sum(arg, limits) for arg in function.args)
         elif isinstance(function, sp.Mul):
-            fc, fv = split_coefficients(function)
-            return fc * Sum(fv, limits)
+            fc, fv = split_commutative(function)
+            return fc * Sum(sp.Mul(*fv), limits)
 
         return sp.Sum.__new__(cls, function, limits)
 
@@ -413,23 +421,13 @@ def debug_warning(s):
 def fix_misc_mul(mul):
     assert isinstance(mul, sp.Mul)
 
-    coefficients = []
+    commutative, other = split_commutative(mul)
     args = []
-    for arg in mul.args:
-        if isinstance(arg, int) or isinstance(arg, sp.Number) or arg.is_commutative:
-            if isinstance(arg, int) or isinstance(arg, sp.Number):
-                arg_fixed = arg % 2
-                if arg != arg_fixed:
-                    # The following warning throws too often:
-                    # debug_warning("fix_misc fixed number {} to {}".format(arg, arg_fixed))
-                    if arg_fixed == 0:
-                        return 0
-                arg = arg_fixed
-            coefficients.append(arg)
-        elif isinstance(arg, sp.Sum):
-            args.append(Sum(*arg.args))
-        else:
-            args.append(arg)
+
+    for item in other:
+        if isinstance(item, sp.Sum):
+            item = Sum(*item.args)
+        args.append(item)
 
     # fix duplets
     queue = deque(args)
@@ -455,7 +453,7 @@ def fix_misc_mul(mul):
     while queue:
         args.append(queue.popleft())
 
-    return sp.Mul(*coefficients) * sp.Mul(*args)
+    return commutative * sp.Mul(*args)
 
 
 def fix_misc(expr):
