@@ -10,17 +10,14 @@ X = TP(x, 1) + TP(1, x)
 Phi1 = sp.Sum(TP((y*x)**q, (x*y)**(k - 1 - q)), (q, 0, k - 1))
 Phi2 = -TP(x, 1) - TP(1, x) + sp.Sum(TP(y * (x*y)**q, y * (x*y)**(k - 2 - q)), (q, 0, k - 2))
 
-lbda = TP(x, 1) * Phi1
-mu = sp.Sum(TP((x*y)**q, y*(x*y)**(k - 1 - q)), (q, 0, k - 1))
-
 rho = TP(x * yx**(k-1), 1) + TP(1, x * yx**(k-1))
 psi = TP(yx**(k-1), xy**(k-1))
 tau = Y * X
-
 sigma = X * Phi1
 
+lbda = TP(x, 1) * Phi1
+mu = sp.Sum(TP((x*y)**q, y*(x*y)**(k - 1 - q)), (q, 0, k - 1))
 omega = TP((1 + c*x) * yx**(k-1), xy**k)
-
 
 A = c**2 * d * omega
 B = d * TP(1 + c*x, y) * X
