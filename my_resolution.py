@@ -45,10 +45,7 @@ H = c * TP(y*xy**(k-1), xy**(k-1))
 I = c**3 * d * TP(x * yx**(k-1), xy**k)
 J = c**3 * TP(x * yx**(k-1), xy**k)
 K = d * TP(x * yx**(k-1), 1)
-L = (
-    + c * TP(yx**(k-1), x*yx**(k-1))
-    # + c * TP(yx**(k-1), xy**k)  # WARNING: new addition
-)
+L = c * TP(yx**(k-1), x*yx**(k-1))
 
 M = d * TP(x*yx**(k-1), 1) + c**3 * d * TP(x*yx**(k-1), xy**k)
 
