@@ -4,7 +4,6 @@ LoadPackage("qpa");
 ExtAlgebraDimensions := function(M, n)
     local N, projcovers, f, i, EndM, J, gens, extgroups, dim_ext_groups;
 
-    K := LeftActingDomain(M);
     N := M;
     projcovers := [];
     for i in [1..n] do
