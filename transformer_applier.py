@@ -78,6 +78,12 @@ def split_commutative(expr):
     return commutative, other
 
 
+def expand_add(expr):
+    # FIXME: this assumes that no relations have a sum
+    terms = [expand_with_transformers_impl(term) for term in expr.args]
+    return sp.Add(*terms)
+
+
 def expand_mul(expr):
     assert isinstance(expr, sp.Mul)
 
@@ -203,10 +209,7 @@ def expand_with_transformers_impl(expr):
     elif isinstance(expr, sp.Symbol):
         return try_transformers_general(expr)
     elif isinstance(expr, sp.Add):
-        # FIXME: this assumes that no relations have a sum
-        # FIXME: asymmetry, other cases have dedicated expand_* functions
-        terms = [expand_with_transformers_impl(term) for term in expr.args]
-        return sp.Add(*terms)
+        return expand_add(expr)
     elif isinstance(expr, sp.Mul):
         return expand_mul(expr)
     elif isinstance(expr, sp.Pow):
