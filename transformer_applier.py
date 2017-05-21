@@ -10,6 +10,13 @@ from my_algebra import zeros_mul, zeros_pow
 from my_transformers import transformers_relations_general, transformers_relations_mul
 
 
+config = {
+    'char': 2,
+    'general': transformers_general + transformers_relations_general,
+    'mul': transformers_mul + transformers_relations_mul
+}
+
+
 def apply_transformer_termwise(terms: List, tr: Transformer) -> List:
     # TODO: get rid of deque (replace with a custom class based on list)
     queue = deque(terms)
@@ -35,8 +42,8 @@ def apply_transformer_termwise(terms: List, tr: Transformer) -> List:
     return terms
 
 
-def try_transformers_general(expr, transformers: List[Transformer]):
-    for tr in transformers:
+def try_transformers_general(expr):
+    for tr in config['general']:
         assert tr.arg_num == 1
         assert tr.context == 'none'  # ?
 
@@ -46,8 +53,8 @@ def try_transformers_general(expr, transformers: List[Transformer]):
     return expr
 
 
-def apply_characteristic(x, char):
-    return x if char == 0 else x % char
+def apply_characteristic(x):
+    return x if config['char'] == 0 else x % config['char']
 
 
 def split_commutative(expr):
@@ -71,19 +78,19 @@ def split_commutative(expr):
     return commutative, other
 
 
-def expand_mul(expr, char, general, mul):
+def expand_mul(expr):
     assert isinstance(expr, sp.Mul)
 
     commutative, other = split_commutative(expr)
 
-    commutative = [(apply_characteristic(v, char) if isinstance(v, sp.Number) else v) for v in commutative]
+    commutative = [(apply_characteristic(v) if isinstance(v, sp.Number) else v) for v in commutative]
     commutative = sp.Mul(*commutative)
     if commutative == 0:
         return S.Zero
 
-    terms = [expand_with_transformers_impl(term, char, general, mul) for term in other]
+    terms = [expand_with_transformers_impl(term) for term in other]
 
-    for tr in mul:
+    for tr in config['mul']:
         terms = apply_transformer_termwise(terms, tr)
 
     def catch_zeros(expr):
@@ -112,18 +119,18 @@ def expand_mul(expr, char, general, mul):
     return commutative * postprocess(sp.Mul(*terms))
 
 
-def expand_pow(expr, char, general, mul):
+def expand_pow(expr):
     assert isinstance(expr, sp.Pow)
 
-    base = expand_with_transformers_impl(expr.args[0], char, general, mul)
+    base = expand_with_transformers_impl(expr.args[0])
     expr = sp.Pow(base, expr.args[1])
-    expr = try_transformers_general(expr, general)
+    expr = try_transformers_general(expr)
 
     return expr
 
 
-def expand_sum(expr, char, general, mul):
-    function = expand_with_transformers_impl(expr.function, char, general, mul)
+def expand_sum(expr):
+    function = expand_with_transformers_impl(expr.function)
     if function == 0:  # actually, this is an inlined transformer
         return S.Zero
     elif isinstance(function, sp.Add):
@@ -135,25 +142,25 @@ def expand_sum(expr, char, general, mul):
         fc, fv = split_commutative(function)  # `fv` is a list of terms
         commutative = sp.Mul(*fc)
         expr = sp.Sum(sp.Mul(*fv), expr.limits[0])
-        expr = try_transformers_general(expr, general)
+        expr = try_transformers_general(expr)
         return commutative * expr
 
     return sp.Sum(function, expr.limits)
 
 
-def expand_tp(expr, char, general, mul):
+def expand_tp(expr):
     l, r = expr.args
-    l = expand_with_transformers_impl(l, char, general, mul)
-    r = expand_with_transformers_impl(r, char, general, mul)
+    l = expand_with_transformers_impl(l)
+    r = expand_with_transformers_impl(r)
     if l == 0 or r == 0:
         return S.Zero
 
     if isinstance(l, sp.Add):
         expr = sp.Add(*[TP(arg, r) for arg in l.args])
-        return expand_with_transformers_impl(expr, char, general, mul)
+        return expand_with_transformers_impl(expr)
     if isinstance(r, sp.Add):
         expr = sp.Add(*[TP(l, arg) for arg in r.args])
-        return expand_with_transformers_impl(expr, char, general, mul)
+        return expand_with_transformers_impl(expr)
 
     lc, lnc = split_commutative(l) if isinstance(l, sp.Mul) else ([S.One], [l])
     rc, rnc = split_commutative(r) if isinstance(r, sp.Mul) else ([S.One], [r])
@@ -167,22 +174,22 @@ def expand_tp(expr, char, general, mul):
     return commutative * tp
 
 
-def expand_seq(expr, char, general, mul):
-    formula = expand_with_transformers_impl(expr.formula, char, general, mul)
+def expand_seq(expr):
+    formula = expand_with_transformers_impl(expr.formula)
     formula = sp.piecewise_fold(formula)
     expr = sp.SeqFormula(formula, expr.args[1])
-    return try_transformers_general(expr, general)
+    return try_transformers_general(expr)
 
 
-def expand_piecewise(expr, char, general, mul):
+def expand_piecewise(expr):
     def expand_cond_expr(f, cond):
-        return (expand_with_transformers_impl(f, char, general, mul), cond)
+        return (expand_with_transformers_impl(f), cond)
     args = [expand_cond_expr(*arg) for arg in expr.args]
     expr = sp.Piecewise(*args)
-    return try_transformers_general(expr, general)
+    return try_transformers_general(expr)
 
 
-def expand_with_transformers_impl(expr, char, general, mul):
+def expand_with_transformers_impl(expr):
     # because, well, expand() doesn't work on SeqFormula
     # https://github.com/sympy/sympy/issues/12634
     if not isinstance(expr, sp.SeqFormula):
@@ -192,26 +199,26 @@ def expand_with_transformers_impl(expr, char, general, mul):
     expr = sp.powsimp(expr)
 
     if isinstance(expr, sp.Number):
-        return apply_characteristic(expr, char)
+        return apply_characteristic(expr)
     elif isinstance(expr, sp.Symbol):
-        return try_transformers_general(expr, general)
+        return try_transformers_general(expr)
     elif isinstance(expr, sp.Add):
         # FIXME: this assumes that no relations have a sum
         # FIXME: asymmetry, other cases have dedicated expand_* functions
-        terms = [expand_with_transformers_impl(term, char, general, mul) for term in expr.args]
+        terms = [expand_with_transformers_impl(term) for term in expr.args]
         return sp.Add(*terms)
     elif isinstance(expr, sp.Mul):
-        return expand_mul(expr, char, general, mul)
+        return expand_mul(expr)
     elif isinstance(expr, sp.Pow):
-        return expand_pow(expr, char, general, mul)
+        return expand_pow(expr)
     elif isinstance(expr, sp.Sum):
-        return expand_sum(expr, char, general, mul)
+        return expand_sum(expr)
     elif isinstance(expr, TP):
-        return expand_tp(expr, char, general, mul)
+        return expand_tp(expr)
     elif isinstance(expr, sp.SeqFormula):
-        return expand_seq(expr, char, general, mul)
+        return expand_seq(expr)
     elif isinstance(expr, sp.Piecewise):
-        return expand_piecewise(expr, char, general, mul)
+        return expand_piecewise(expr)
     else:
         raise TypeError("%s is unmatched type %s" % (expr, type(expr)))
 
@@ -221,22 +228,14 @@ def test_issue_11981():
     assert sp.powsimp((x*y)**2 * (y*x)**2) == (x*y)**2 * (y*x)**2
 
 
-def expand_with_transformers(expr, char=2, general=None, mul=None, max_iterations=10):
-    """ Apply relations to an arbitrary Sympy expression while possible. """
+def expand_with_transformers(expr, max_iterations=10):
+    """ Apply transformers to an arbitrary Sympy expression while possible. """
 
     # because otherwise something is bound to break in a most unexpected way
     test_issue_11981()
 
-    # FIXME: Only considering the special case of concrete relations.
-    # FIXME: default characteristic is 2 instead of 0
-    if general is None:
-        general = transformers_general + transformers_relations_general
-
-    if mul is None:
-        mul = transformers_mul + transformers_relations_mul
-
     for _ in range(max_iterations):
-        new_expr = expand_with_transformers_impl(expr, char, general, mul)
+        new_expr = expand_with_transformers_impl(expr)
         if expr == new_expr:
             return expr
         expr = new_expr
