@@ -242,3 +242,6 @@ def expand_with_transformers(expr, char=2, general=None, mul=None, max_iteration
         expr = new_expr
 
     raise RuntimeError("No convergence after %d iterations" % max_iterations)
+
+
+texpand = expand_with_transformers
