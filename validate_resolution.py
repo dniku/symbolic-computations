@@ -51,8 +51,9 @@ def validate_2k1_2k2():
     expr = expand_with_transformers(expr)
     assert expr == 0
 
-validate_2k_2k1()
-validate_2k1_2k2()
+if __name__ == '__main__':
+    validate_2k_2k1()
+    validate_2k1_2k2()
 
 # comp = composition(d3, d4)
 # for i in range(len(comp)):
