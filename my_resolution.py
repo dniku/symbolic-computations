@@ -7,15 +7,15 @@ q = sp.symbols('q')
 Y = TP(y, 1) + TP(1, y)
 X = TP(x, 1) + TP(1, x)
 
-Phi1 = sp.Sum(TP((y*x)**q, (x*y)**(k - 1 - q)), (q, 0, k - 1))
-Phi2 = -TP(x, 1) - TP(1, x) + sp.Sum(TP(y * (x*y)**q, y * (x*y)**(k - 2 - q)), (q, 0, k - 2))
+phi1 = sp.Sum(TP((y * x) ** q, (x * y) ** (k - 1 - q)), (q, 0, k - 1))
+phi2 = -TP(x, 1) - TP(1, x) + sp.Sum(TP(y * (x * y) ** q, y * (x * y) ** (k - 2 - q)), (q, 0, k - 2))
 
 rho = TP(x * yx**(k-1), 1) + TP(1, x * yx**(k-1))
 psi = TP(yx**(k-1), xy**(k-1))
 tau = Y * X
-sigma = X * Phi1
+sigma = X * phi1
 
-lbda = TP(x, 1) * Phi1
+lbda = TP(x, 1) * phi1
 mu = sp.Sum(TP((x*y)**q, y*(x*y)**(k - 1 - q)), (q, 0, k - 1))
 omega = TP((1 + c*x) * yx**(k-1), xy**k)
 
@@ -45,6 +45,20 @@ K = d * TP(x * yx**(k-1), 1)
 L = c * TP(yx**(k-1), x*yx**(k-1))
 
 M = d * TP(x*yx**(k-1), 1) + c**3 * d * TP(x*yx**(k-1), xy**k)
+
+d0 = [
+    [Y, X],
+]
+
+d1 = [
+    [Y + d * lbda, phi1 + c * lbda],
+    [d * mu, phi2 + c * mu],
+]
+
+d2 = [
+    [Y + A, rho + C],
+    [B, tau + D],
+]
 
 d3 = [
     [Y + E, rho + G, 0],
