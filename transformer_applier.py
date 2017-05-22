@@ -4,11 +4,10 @@ from typing import List
 import sympy as sp
 from sympy import S
 
-from tensor_product import TP
-from transformers import Transformer, transformers_general, transformers_mul
 from my_algebra import zeros_mul, zeros_pow
 from my_transformers import transformers_relations_general, transformers_relations_mul
-
+from tensor_product import TP
+from transformers import Transformer, transformers_general, transformers_mul
 from util import split_commutative
 
 config = {
