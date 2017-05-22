@@ -59,9 +59,10 @@ def apply_characteristic(x):
 
 
 def expand_add(expr):
-    # FIXME: this assumes that no relations have a sum
     terms = [expand_with_transformers_impl(term) for term in expr.args]
-    return sp.Add(*terms)
+    expr = sp.Add(*terms)
+    expr = try_transformers_general(expr)
+    return expr
 
 
 def expand_mul(expr):
