@@ -28,8 +28,8 @@ def apply_transformer_termwise(terms: List, tr: Transformer) -> List:
         for _ in range(tr.arg_num):
             current_terms.append(queue.popleft())
 
-        if tr.match(*current_terms):
-            new_terms = tr.transform(*current_terms)
+        new_terms = tr.match_transform(*current_terms)
+        if new_terms is not None:
             while new_terms:
                 queue.appendleft(new_terms.pop())
         else:
@@ -48,8 +48,9 @@ def try_transformers_general(expr):
         assert tr.arg_num == 1
         assert tr.context == 'none'  # ?
 
-        if tr.match(expr):
-            return tr.transform(expr)
+        new_expr = tr.match_transform(expr)
+        if new_expr is not None:
+            return new_expr
 
     return expr
 

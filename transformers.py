@@ -21,13 +21,20 @@ class Transformer(object):
         """ One of: 'none', 'mul' (maybe 'add' in the future) """
         pass
 
-    @abc.abstractstaticmethod
+    @staticmethod
     def match(self, *args) -> bool:
         pass
 
-    @abc.abstractstaticmethod
+    @staticmethod
     def transform(self, *args):
         pass
+
+    @classmethod
+    def match_transform(cls, *args):
+        if cls.match(*args):
+            return cls.transform(*args)
+        else:
+            return None
 
 
 ########################################
