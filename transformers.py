@@ -1,8 +1,11 @@
 import abc
+from collections import defaultdict
 
 import sympy as sp
+from sympy import S
 
 from tensor_product import TP
+from util import split_commutative
 
 
 class Transformer(object):
@@ -286,6 +289,82 @@ class Transformer_seq_piecewise_out_of_bounds(Transformer):
 
 
 ########################################
+# Sums
+########################################
+
+def split_coefficients_into_dict_keys(terms):
+    coeffs_to_terms = defaultdict(list)
+
+    for term in terms:
+        if isinstance(term, sp.Mul):
+            commutative, other = split_commutative(term)
+            coeff = sp.Mul(*commutative)
+            other = sp.Mul(*other)
+        else:
+            coeff = S.One
+            other = term
+        coeffs_to_terms[coeff].append(other)
+
+    return coeffs_to_terms
+
+
+class Transformer_overlapping_sums_i_plus_1(Transformer):
+    """ coeff * Sum(f(i1), (i1, a, b)) + coeff * Sum(g(i2), (i2, c, d)) where g(i) == f(i + 1)
+      → coeff * Sum(f(i1), (i1, a, b)) + coeff * Sum(f(i2), (i2, c + 1, d + 1)) """
+
+    arg_num = 1
+    context = 'none'
+
+    @staticmethod
+    def match_transform(v):
+        if not isinstance(v, sp.Add):
+            return None
+
+        terms = v.args
+        coeffs_to_terms = split_coefficients_into_dict_keys(terms)
+
+        was_update = False
+        new_terms = []
+
+        for (coeff, terms) in coeffs_to_terms.items():
+            sums = []
+            not_sums = []
+            for term in terms:
+                if isinstance(term, sp.Sum):
+                    sums.append(term)
+                else:
+                    not_sums.append(term)
+
+            for i1 in range(len(sums)):
+                for i2 in range(len(sums)):
+                    if i1 == i2:
+                        continue
+
+                    sum1 = sums[i1]
+                    sum2 = sums[i2]
+
+                    func1 = sum1.function
+                    func2 = sum2.function
+
+                    var1 = sum1.limits[0][0]
+                    var2 = sum2.limits[0][0]
+
+                    if func1.subs(var1, var2 + 1) == func2:
+                        # match!
+                        was_update = True
+                        new_func = func1.subs(var1, var2)
+                        new_limits = (var2, sum2.limits[0][1] + 1, sum2.limits[0][2] + 1)
+                        sums[i2] = sp.Sum(new_func, new_limits)
+
+            new_terms.extend([coeff * term for term in not_sums + sums])
+
+        if was_update:
+            return sp.Add(*new_terms)
+        else:
+            return None
+
+
+########################################
 # Wrap up and ship
 ########################################
 
@@ -293,6 +372,7 @@ transformers_general = [
     Transformer_piecewise_one_eq,
     Transformer_seq_piecewise_out_of_bounds,
     Transformer_tp2,
+    Transformer_overlapping_sums_i_plus_1,
 ]
 
 transformers_mul = [
