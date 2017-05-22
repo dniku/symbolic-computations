@@ -3,7 +3,7 @@ import sympy as sp
 from tensor_product import TP
 from transformer_applier import texpand
 from my_algebra import k, x, y, xy, yx, c, d
-from my_resolution import X, B
+from my_resolution import X
 
 
 i = sp.symbols('i')
