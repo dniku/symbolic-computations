@@ -12,3 +12,24 @@ def sum_terms(terms):
         return acc
     else:
         return sp.Add(*terms)
+
+
+def split_commutative(expr):
+    assert isinstance(expr, sp.Mul)
+    # TODO: make sure there are no cases where this is needed
+    # if not isinstance(expr, sp.Mul):
+    #     return S.One, [expr]
+
+    commutative = []
+    other = []
+    for arg in expr.args:
+        assert not isinstance(arg, int)
+        if isinstance(arg, sp.Number):
+            # Making sure Sympy makes sense
+            assert arg.is_commutative
+        if arg.is_commutative:
+            commutative.append(arg)
+        else:
+            other.append(arg)
+
+    return commutative, other

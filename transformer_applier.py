@@ -9,6 +9,7 @@ from transformers import Transformer, transformers_general, transformers_mul
 from my_algebra import zeros_mul, zeros_pow
 from my_transformers import transformers_relations_general, transformers_relations_mul
 
+from util import split_commutative
 
 config = {
     'char': 2,
@@ -55,27 +56,6 @@ def try_transformers_general(expr):
 
 def apply_characteristic(x):
     return x if config['char'] == 0 else x % config['char']
-
-
-def split_commutative(expr):
-    assert isinstance(expr, sp.Mul)
-    # TODO: make sure there are no cases where this is needed
-    # if not isinstance(expr, sp.Mul):
-    #     return S.One, [expr]
-
-    commutative = []
-    other = []
-    for arg in expr.args:
-        assert not isinstance(arg, int)
-        if isinstance(arg, sp.Number):
-            # Making sure Sympy makes sense
-            assert arg.is_commutative
-        if arg.is_commutative:
-            commutative.append(arg)
-        else:
-            other.append(arg)
-
-    return commutative, other
 
 
 def expand_add(expr):

@@ -5,7 +5,7 @@ from collections import deque
 
 from sympy.core.singleton import S
 
-from transformer_applier import split_commutative
+from util import split_commutative
 from constants import WARNINGS
 from matchers import *
 from tensor_product import TP

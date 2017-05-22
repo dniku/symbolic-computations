@@ -2,8 +2,8 @@ import sympy as sp
 
 from my_algebra import basis
 from tensor_product import TP
-from util import sum_terms
-from transformer_applier import expand_with_transformers, split_commutative
+from util import sum_terms, split_commutative
+from transformer_applier import expand_with_transformers
 
 
 def multiply_termwise(coeff, expr):
