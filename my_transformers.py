@@ -175,6 +175,34 @@ class Transformer_xyk_yxi(Transformer):
         return [sp.Piecewise((v1, sp.Eq(i, 0)), (0, True))]
 
 
+class Transformer_k_neq_0_in_piecewise(Transformer):
+    """ Piecewise(..., (f, Eq(k, 0)), ...) → Piecewise(...) """
+
+    arg_num = 1
+    context = 'none'
+
+    @staticmethod
+    def is_k_equals_0(cond):
+        return (
+            isinstance(cond, sp.Eq) and
+            str(cond.args[0]) == 'k' and
+            cond.args[1] == 0
+        )
+
+    @staticmethod
+    def match_transform(v):
+        if not isinstance(v, sp.Piecewise):
+            return None
+
+        is_k_equals_0 = Transformer_k_neq_0_in_piecewise.is_k_equals_0
+
+        if any(is_k_equals_0(cond) for (f, cond) in v.args):
+            new_args = [(f, cond) for (f, cond) in v.args if not is_k_equals_0(cond)]
+            return sp.Piecewise(*new_args)
+        else:
+            return None
+
+
 ########################################
 # Sums
 ########################################
@@ -258,6 +286,7 @@ transformers_relations_general = [
     Transformer_x2,
     Transformer_y2,
     Transformer_yxk,
+    Transformer_k_neq_0_in_piecewise,
     # Transformer_sums,
 ]
 

@@ -25,6 +25,16 @@ def test_sum_simplification():
     assert sp.Sum(TP(yx * xy ** i, yx ** (k - i)), (i, 0, k - 1)) == TP(yx, xy ** k)
 
 
+def test_piecewise_simplification():
+    d2d3_11 = (
+        c * d * TP(x, sp.Piecewise((x, sp.Eq(k, 0)), (0, True))) +
+        c * d * TP(sp.Piecewise((x, sp.Eq(k, 0)), (0, True)), x) +
+        d * TP(1, sp.Piecewise((x, sp.Eq(k, 0)), (0, True))) +
+        d * TP(sp.Piecewise((x, sp.Eq(k, 0)), (0, True)), 1)
+    )
+    assert texpand(d2d3_11) == 0
+
+
 def test_misc():
     assert texpand(2 * x) == 0
     assert texpand(y * x * y * x) == yx ** 2
