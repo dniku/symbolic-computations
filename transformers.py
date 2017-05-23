@@ -472,6 +472,35 @@ class Transformer_overlapping_sums_by_one(Transformer):
             return None
 
 
+class Transformer_sum_of_piecewise_with_only_zero(Transformer):
+    """ Sum(Piecewise((f, Eq(i, 0)), (0, True)), (i, 0, a)) → f.subs(i, 0) """
+
+    arg_num = 1
+    context = 'none'
+
+    @staticmethod
+    def match_transform(v):
+        if (
+            not isinstance(v, sp.Sum) or
+            not isinstance(v.function, sp.Piecewise) or
+            v.limits[0][1] != 0 or  # sum starts from zero
+            len(v.function.args) != 2 or  # piecewise has two cases
+            v.function.args[1] != (0, True)  # second case is "otherwise: zero"
+        ):
+            return None
+
+        f, cond = v.function.args[0]
+
+        if (
+            not isinstance(cond, sp.Eq) or
+            cond.args[0] != v.limits[0][0] or  # condition is "i == ..."
+            cond.args[1] != 0  # condition is "... == 0"
+        ):
+            return None
+
+        return f.subs(cond.args[0], 0)
+
+
 ########################################
 # Wrap up and ship
 ########################################
@@ -481,7 +510,8 @@ transformers_general = [
     Transformer_seq_piecewise_out_of_bounds,
     Transformer_tp2,
     Transformer_overlapping_sums_i_plus_1,
-    Transformer_overlapping_sums_by_one
+    Transformer_overlapping_sums_by_one,
+    Transformer_sum_of_piecewise_with_only_zero,
 ]
 
 transformers_mul = [

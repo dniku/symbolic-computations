@@ -132,7 +132,9 @@ def expand_sum(expr):
         expr = try_transformers_general(expr)
         return commutative * expr
 
-    return sp.Sum(function, expr.limits)
+    expr = sp.Sum(function, expr.limits)
+
+    return try_transformers_general(expr)
 
 
 def expand_tp(expr):
