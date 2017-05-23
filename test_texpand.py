@@ -3,7 +3,7 @@ import sympy as sp
 from tensor_product import TP
 from transformer_applier import texpand
 from my_algebra import k, x, y, xy, yx, c, d
-from my_resolution import X
+from my_resolution import X, q
 
 
 i = sp.symbols('i')
@@ -22,6 +22,7 @@ def test_sign_removal():
 
 
 def test_sum_simplification():
+    # It is known that this test fails.
     assert sp.Sum(TP(yx * xy ** i, yx ** (k - i)), (i, 0, k - 1)) == TP(yx, xy ** k)
 
 
@@ -34,6 +35,14 @@ def test_piecewise_simplification():
     )
     assert texpand(d2d3_11) == 0
 
+    expr = sp.Sum(
+        sp.Piecewise(
+            (c * TP(xy**k, y*xy**(k-q-1)*y) + TP(y*xy**(k - 1), y*xy**(k-q-1) * y), sp.Eq(q, 0)),
+            (0, True)
+        ), (q, 0, k - 1)
+    )
+    assert texpand(expr) == 0
+
 
 def test_misc():
     assert texpand(2 * x) == 0
@@ -44,6 +53,8 @@ def test_misc():
 
 
 def test_x_cubed_reduces_to_xy_k():
+    # It is known that this test fails.
     left = TP(x, y) * X
     right = X + TP(xy ** k, xy ** k)
     assert texpand(left * right) == texpand(texpand(left) * texpand(right))
+
