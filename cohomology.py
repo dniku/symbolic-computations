@@ -3,7 +3,7 @@ import sympy as sp
 from my_algebra import basis
 from tensor_product import TP
 from util import sum_terms, split_commutative
-from transformer_applier import expand_with_transformers
+from transformer_applier import texpand
 
 
 def multiply_termwise(coeff, expr):
@@ -38,15 +38,11 @@ def ast(expr, r):
 def ast_table(expr):
     for r in basis:
         product = ast(expr, r)
-        product_expanded = expand_with_transformers(product)
-        print('({}) ∗ {}\n    = {}\n    → {}'.format(expr, r, product, product_expanded))
-        # if product != product_expanded:
-        #     print('%s → %s' % (product, product_expanded))
-        # else:
-        #     print(product_expanded)
+        product = texpand(product)
+        print('({}) ∗ {}\n    = {}'.format(expr, r, product))
 
-# from my_resolution import tau as expr
-# print(expr)
-# expr = expand_with_transformers(expr)
-# print(expr)
-# ast_table(expr)
+
+def ast_matrix(expr):
+    col1 = basis
+    col2 = [texpand(ast(expr, r)) for r in basis]
+    return sp.Matrix([col1, col2]).T
