@@ -245,7 +245,7 @@ class Transformer_piecewise_one_eq(Transformer):
                 if f != new_f:
                     was_update = True
                     f = new_f
-            return new_args.append((f, cond))
+            new_args.append((f, cond))
 
         if was_update:
             return sp.Piecewise(*new_args)
