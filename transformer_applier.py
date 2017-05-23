@@ -208,6 +208,8 @@ def expand_with_transformers_impl(expr):
 
 
 def test_issue_11981():
+    # See the following PR for a fix:
+    # https://github.com/sympy/sympy/pull/12008/files#diff-291ea7db63b955490679633eb7f2f34fL384
     x, y = sp.symbols('x y', commutative=False)
     assert sp.powsimp((x*y)**2 * (y*x)**2) == (x*y)**2 * (y*x)**2
 
