@@ -230,22 +230,27 @@ class Transformer_piecewise_one_eq(Transformer):
     context = 'none'
 
     @staticmethod
-    def match(v):
-        return (
-            isinstance(v, sp.Piecewise) and
-            any(isinstance(arg[1], sp.Eq) for arg in v.args)
-        )
+    def match_transform(v):
+        if not isinstance(v, sp.Piecewise):
+            return None
 
-    @staticmethod
-    def transform(v):
-        def transform_pair(f, cond):
+        was_update = False
+        new_args = []
+
+        for arg in v.args:
+            f, cond = arg
             if isinstance(cond, sp.Eq):
                 x, val = cond.args
-                return (f.subs(x, val), sp.Eq(x, val))
-            else:
-                return (f, cond)
-        args = [transform_pair(*arg) for arg in v.args]
-        return sp.Piecewise(*args)
+                new_f = f.subs(x, val)
+                if f != new_f:
+                    was_update = True
+                    f = new_f
+            return new_args.append((f, cond))
+
+        if was_update:
+            return sp.Piecewise(*new_args)
+        else:
+            return None
 
 
 ########################################
