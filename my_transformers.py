@@ -167,12 +167,14 @@ class Transformer_xyk_yxi(Transformer):
             isinstance(v1, sp.Pow) and
             isinstance(v2, sp.Pow) and
             str(v1) in {'(x*y)**k', '(x*y)**(k - 1)'} and
-            str(v2) == '(y*x)**i'
+            isinstance(v2, sp.Pow) and
+            v2.args[0] == 'y*x' and
+            isinstance(v2.args[1], sp.Symbol)
         )
 
     @staticmethod
     def transform(v1, v2):
-        return [sp.Piecewise((v1, sp.Eq(i, 0)), (0, True))]
+        return [sp.Piecewise((v1, sp.Eq(v2.args[1], 0)), (0, True))]
 
 
 class Transformer_k_neq_0_in_piecewise(Transformer):
