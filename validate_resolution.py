@@ -1,12 +1,11 @@
 import sympy as sp
-from tensor_product import TP
-from transformer_applier import expand_with_transformers
+from transformer_applier import texpand
 
-from my_algebra import c, d, x, y, xy, yx, k
-from my_resolution import Y, K, rho, psi, L, M, F, I, J, d3, d4
+from my_resolution import Y, rho, F, I, J, K, M
 
 
 def dot(left, right):
+    assert len(left) == len(right)
     return sp.Add(*[r * l for (l, r) in zip(left, right)])
 
 
@@ -22,41 +21,37 @@ def composition(d2, d1):
         for j in range(product_cols):
             row = d2[i]
             col = [d1[k][j] for k in range(len(d1))]
-            product[i][j] = expand_with_transformers(dot(row, col))
+            product[i][j] = texpand(dot(row, col))
     return product
 
 
-def validate_2k_2k1():
-    left = [F, Y + K, rho, 0]
-    right = [0, rho, Y + M, F]
-    expr = dot(left, right)
-    expr = expand_with_transformers(expr)
-    assert expr == 0
+def upper_left_2k_2k1():
+    left = [
+        [Y + I, rho + J, 0, 0],
+        [F, Y + K, rho, 0],
+    ]
 
-    right = [0, 0, rho + J, Y]
-    expr = dot(left, right)
-    expr = expand_with_transformers(expr)
-    assert expr == 0
+    right = [
+        [Y + M, rho + J, 0, 0],
+        [F, Y, rho, 0],
+        [0, 0, Y + M, rho + J],
+        [0, 0, F, Y],
+    ]
+
+    return composition(left, right)
 
 
-def validate_2k1_2k2():
-    left = [F, Y, rho, 0]
-    right = [0, rho, Y + I, F]
-    expr = dot(left, right)
-    expr = expand_with_transformers(expr)
-    assert expr == 0
+def upper_left_2k1_2k2():
+    left = [
+        [Y + M, rho + J, 0, 0],
+        [F, Y, rho, 0],
+    ]
 
-    right = [0, 0, rho + J, Y]
-    expr = dot(left, right)
-    expr = expand_with_transformers(expr)
-    assert expr == 0
+    right = [
+        [Y + I, rho + J, 0, 0],
+        [F, Y + K, rho, 0],
+        [0, 0, Y + I, rho + J],
+        [0, 0, F, Y + K],
+    ]
 
-if __name__ == '__main__':
-    validate_2k_2k1()
-    validate_2k1_2k2()
-
-# comp = composition(d3, d4)
-# for i in range(len(comp)):
-#     row = comp[i]
-#     for j in range(len(row)):
-#         print('(%d, %d): %s' % (i, j, row[j]))
+    return composition(left, right)
