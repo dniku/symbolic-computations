@@ -308,6 +308,19 @@ def split_coefficients_into_dict_keys(terms):
     return coeffs_to_terms
 
 
+def separate_sums(terms):
+    sums = []
+    not_sums = []
+    for term in terms:
+        if isinstance(term, sp.Sum):
+            sums.append(term)
+        else:
+            not_sums.append(term)
+    return sums, not_sums
+
+
+# TODO: figure out a good way to get rid of code duplication
+
 class Transformer_overlapping_sums_i_plus_1(Transformer):
     """ coeff * Sum(f(i1), (i1, a, b)) + coeff * Sum(g(i2), (i2, c, d)) where g(i) == f(i + 1)
       → coeff * Sum(f(i1), (i1, a, b)) + coeff * Sum(f(i2), (i2, c + 1, d + 1)) """
@@ -327,13 +340,7 @@ class Transformer_overlapping_sums_i_plus_1(Transformer):
         new_terms = []
 
         for (coeff, terms) in coeffs_to_terms.items():
-            sums = []
-            not_sums = []
-            for term in terms:
-                if isinstance(term, sp.Sum):
-                    sums.append(term)
-                else:
-                    not_sums.append(term)
+            sums, not_sums = separate_sums(terms)
 
             for i1 in range(len(sums)):
                 for i2 in range(len(sums)):
@@ -364,6 +371,102 @@ class Transformer_overlapping_sums_i_plus_1(Transformer):
             return None
 
 
+class Transformer_overlapping_sums_by_one(Transformer):
+    """ coeff * Sum(f(i), (i, a, b)) + coeff * Sum(f(i), (i, a [+ 1], b [+ 1]))
+      → coeff * Sum(f(i) + f(i), (i, a [+ 1], b)) [+ coeff * f(a)] [+ coeff * f(b + 1)]
+    Note: strictly speaking, for this to be valid we also need b ≥ a + 1 and d ≥ a + 1,
+    but in the cases I'm interested in this holds. """
+
+    arg_num = 1
+    context = 'none'
+
+    @staticmethod
+    def match_transform(v):
+        if not isinstance(v, sp.Add):
+            return None
+
+        terms = v.args
+        coeffs_to_terms = split_coefficients_into_dict_keys(terms)
+
+        was_update = False
+        new_terms = []
+
+        for (coeff, terms) in coeffs_to_terms.items():
+            sums, not_sums = separate_sums(terms)
+
+            for i1 in range(len(sums)):
+                do_break = False
+                for i2 in range(len(sums)):
+                    if i1 == i2:
+                        continue
+
+                    sum1 = sums[i1]
+                    sum2 = sums[i2]
+
+                    func1 = sum1.function
+                    func2 = sum2.function
+
+                    var1 = sum1.limits[0][0]
+                    var2 = sum2.limits[0][0]
+
+                    if var1 == var2 and func1 == func2:
+                        # sums of identical functions over different intervals detected
+                        l1, r1 = sum1.limits[0][1:]
+                        l2, r2 = sum2.limits[0][1:]
+
+                        # This should be handled by the Add
+                        assert (l1 != l2) or (r1 != r2)
+
+                        # Here we're considering Sums over sets like this:
+                        #     l1|...    sum1    ...|r1
+                        #       l2|...    sum2    ...|r2
+                        # So we're only handling the situation where l1 ≤ l2 ≤ r1 ≤ r2.
+
+                        extra_terms = []
+                        new_l = l2
+                        new_r = r1
+
+                        if l1 + 1 == l2:
+                            if r1 + 1 == r2:
+                                was_update = True
+                                extra_terms.append(func1.subs(var1, l1))
+                                extra_terms.append(func2.subs(var2, r2))
+                            elif r1 == r2:
+                                was_update = True
+                                extra_terms.append(func1.subs(var1, l1))
+                            else:
+                                pass
+                        elif l1 == l2:
+                            if r1 + 1 == r2:
+                                was_update = True
+                                extra_terms.append(func2.subs(var2, r2))
+                            else:
+                                pass
+
+                        if was_update:
+                            # Overwrite sum1, remove sum2, add new terms in not_sums
+
+                            new_func = func1 + func1
+                            new_limits = (var1, new_l, new_r)
+
+                            sums[i1] = sp.Sum(new_func, new_limits)
+                            sums = sums[:i2] + sums[i2 + 1:]
+                            not_sums.extend(extra_terms)
+
+                            do_break = True
+                            break
+
+                if do_break:
+                    break
+
+            new_terms.extend([coeff * term for term in not_sums + sums])
+
+        if was_update:
+            return sp.Add(*new_terms)
+        else:
+            return None
+
+
 ########################################
 # Wrap up and ship
 ########################################
@@ -373,6 +476,7 @@ transformers_general = [
     Transformer_seq_piecewise_out_of_bounds,
     Transformer_tp2,
     Transformer_overlapping_sums_i_plus_1,
+    Transformer_overlapping_sums_by_one
 ]
 
 transformers_mul = [
