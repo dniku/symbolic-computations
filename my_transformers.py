@@ -85,17 +85,14 @@ class Transformer_xyi_y(Transformer):
     def match(v1, v2):
         return (
             isinstance(v1, sp.Pow) and
-            isinstance(v1.args[0], sp.Mul) and
-            len(v1.args[0].args) == 2 and
-            str(v1.args[0].args[0]) == 'x' and
-            str(v1.args[0].args[1]) == 'y' and
-            str(v1.args[1]) == 'i' and
+            str(v1.args[0]) == 'x*y' and
+            isinstance(v1.args[1], sp.Symbol) and
             str(v2) == 'y'
         )
 
     @staticmethod
     def transform(v1, v2):
-        return [sp.Piecewise((y, sp.Eq(i, 0)), (0, True))]
+        return [sp.Piecewise((y, sp.Eq(v1.args[1], 0)), (0, True))]
 
 
 class Transformer_y_yxi(Transformer):
@@ -109,16 +106,53 @@ class Transformer_y_yxi(Transformer):
         return (
             str(v1) == 'y' and
             isinstance(v2, sp.Pow) and
-            isinstance(v2.args[0], sp.Mul) and
-            len(v2.args[0].args) == 2 and
-            str(v2.args[0].args[0]) == 'y' and
-            str(v2.args[0].args[1]) == 'x' and
-            str(v2.args[1]) == 'i'
+            str(v2.args[0]) == 'y*x' and
+            isinstance(v2.args[1], sp.Symbol)
         )
 
     @staticmethod
     def transform(v1, v2):
-        return [sp.Piecewise((y, sp.Eq(i, 0)), (0, True))]
+        return [sp.Piecewise((y, sp.Eq(v2.args[1], 0)), (0, True))]
+
+
+class Transformer_yxi_x(Transformer):
+    """ (yx)^i*x → x if i == 0, 0 otherwise """
+
+    arg_num = 2
+    context = 'mul'
+
+    @staticmethod
+    def match(v1, v2):
+        return (
+            isinstance(v1, sp.Pow) and
+            str(v1.args[0]) == 'y*x' and
+            isinstance(v1.args[1], sp.Symbol) and
+            str(v2) == 'x'
+        )
+
+    @staticmethod
+    def transform(v1, v2):
+        return [sp.Piecewise((x, sp.Eq(v1.args[1], 0)), (0, True))]
+
+
+class Transformer_x_xyi(Transformer):
+    """ x*(xy)^i → x if i == 0, 0 otherwise """
+
+    arg_num = 2
+    context = 'mul'
+
+    @staticmethod
+    def match(v1, v2):
+        return (
+            str(v1) == 'x' and
+            isinstance(v2, sp.Pow) and
+            str(v2.args[0]) == 'x*y' and
+            isinstance(v2.args[1], sp.Symbol)
+        )
+
+    @staticmethod
+    def transform(v1, v2):
+        return [sp.Piecewise((x, sp.Eq(v2.args[1], 0)), (0, True))]
 
 
 class Transformer_xyk_yxi(Transformer):
@@ -139,44 +173,6 @@ class Transformer_xyk_yxi(Transformer):
     @staticmethod
     def transform(v1, v2):
         return [sp.Piecewise((v1, sp.Eq(i, 0)), (0, True))]
-
-
-class Transformer_yxi_x(Transformer):
-    """ (yx)^i*x → x if i == 0, 0 otherwise """
-
-    arg_num = 2
-    context = 'mul'
-
-    @staticmethod
-    def match(v1, v2):
-        return (
-            isinstance(v1, sp.Pow) and
-            str(v1) == '(y*x)**i' and
-            str(v2) == 'x'
-        )
-
-    @staticmethod
-    def transform(v1, v2):
-        return [sp.Piecewise((x, sp.Eq(i, 0)), (0, True))]
-
-
-class Transformer_x_xyi(Transformer):
-    """ x*(xy)^i → x if i == 0, 0 otherwise """
-
-    arg_num = 2
-    context = 'mul'
-
-    @staticmethod
-    def match(v1, v2):
-        return (
-            str(v1) == 'x' and
-            isinstance(v2, sp.Pow) and
-            str(v2) == '(x*y)**i'
-        )
-
-    @staticmethod
-    def transform(v1, v2):
-        return [sp.Piecewise((x, sp.Eq(i, 0)), (0, True))]
 
 
 ########################################
