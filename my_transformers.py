@@ -1,6 +1,8 @@
 import sympy as sp
+from tensor_product import TP
 from transformers import Transformer
 from my_algebra import x, y, xy, yx, k, c, d, i
+import matchers
 
 
 ############################################################
@@ -178,6 +180,81 @@ class Transformer_x_xyi(Transformer):
 
 
 ########################################
+# Sums
+########################################
+
+
+class Transformer_sums(Transformer):
+    """ well... """
+
+    arg_num = 1
+    context = 'none'
+
+    @staticmethod
+    def match_transform(v):
+        if not isinstance(v, sp.Sum):
+            return None
+
+        function = v.function
+        limits = v.limits[0]
+        var = limits[0]
+
+        if not isinstance(function, TP):
+            return None
+
+        l, r = function.args
+
+        # FIXME: this whole thing
+        if matchers.is_y_xy_y(l):
+            xy_pow = l.args[1].args[1]
+            roots = sp.solve(xy_pow, var)
+            assert (len(roots) <= 1)
+            if roots:
+                return function.subs(var, roots[0])
+        if matchers.is_y_xy_y(r):
+            xy_pow = r.args[1].args[1]
+            roots = sp.solve(xy_pow, var)
+            assert (len(roots) <= 1)
+            if roots:
+                return function.subs(var, roots[0])
+        if matchers.is_x_xy(l):
+            xy_pow = l.args[1].args[1]
+            roots = sp.solve(xy_pow, var)
+            assert (len(roots) <= 1)
+            if roots:
+                return function.subs(var, roots[0])
+        if matchers.is_x_xy(r):
+            xy_pow = r.args[1].args[1]
+            roots = sp.solve(xy_pow, var)
+            assert (len(roots) <= 1)
+            if roots:
+                return function.subs(var, roots[0])
+        if matchers.is_y_x_xy(l):
+            xy_pow = l.args[2].args[1]
+            roots = sp.solve(xy_pow, var)
+            assert (len(roots) <= 1)
+            if roots:
+                return function.subs(var, roots[0])
+        if matchers.is_xy_k_plus_i(l, var):
+            return function.subs(var, 0)
+        # FIXME: missing is_xy_k_plus_i(r)
+        if matchers.matches_xy_k_yx_i(r):
+            yx_pow = r.args[1].args[1]
+            roots = sp.solve(yx_pow, var)
+            assert (len(roots) <= 1)
+            if roots:
+                return function.subs(var, roots[0])
+        if matchers.matches_yx_i_xy_k(l):
+            yx_pow = l.args[0].args[1]
+            roots = sp.solve(yx_pow, var)
+            assert (len(roots) <= 1)
+            if roots:
+                return function.subs(var, roots[0])
+
+        return None
+
+
+########################################
 # Wrap up and ship
 ########################################
 
@@ -185,6 +262,7 @@ transformers_relations_general = [
     Transformer_x2,
     Transformer_y2,
     Transformer_yxk,
+    # Transformer_sums,
 ]
 
 transformers_relations_mul = [
